@@ -9,19 +9,29 @@ This setup can be used in vending machines to detect product weight, confirm ite
 Features
 
 -Real-time weight measurement
+
 -Load Cell + HX711 sensor interface
+
 -OLED display output
+
 -Serial Monitor logging
+
 -Automatic tare (zero reset) on startup
+
 -Adjustable calibration factor
 
 Hardware Required
 
 -Arduino Uno / Nano / Mega
+
 -Load Cell Sensor
+
 -HX711 Load Cell Amplifier
+
 -I2C OLED Display (SSD1306)
+
 -Jumper Wires
+
 -Breadboard (optional)
 
 Wiring
@@ -29,21 +39,33 @@ Wiring
 OLED (I2C)
 
 OLED Pin → Arduino
+
 VCC	- 5V
+
 GND	- GND
+
 SDA	- A4
+
 SCL	- A5
 
 HX711 → Arduino
+
 VCC	- 5V
+
 GND -	GND
+
 DT	- D3
+
 SCK	- D2
 
 Load Cell → HX711
+
 Red - E+
+
 Black	- E-
+
 White	- A-
+
 Green	- A+
 
 Libraries Required
@@ -51,8 +73,11 @@ Libraries Required
 Install these libraries using Arduino Library Manager:
 
 Adafruit SSD1306
+
 Adafruit GFX
+
 HX711
+
 Wire
 
 How It Works
@@ -77,17 +102,25 @@ Adjust the calibration factor until the reading is accurate.
 Example Output
 
 -OLED Display
+
 -Weight:
+
 -185.3 g
+
 -Serial Monitor
+
 -Weight: 185.32 g
 
 Applications
 
 -Vending machine item detection
+
 -Digital weighing scale
+
 -Product dispensing validation
+
 -Smart inventory monitoring
+
 -Embedded sensor projects
 
 License
