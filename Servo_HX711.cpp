@@ -16,7 +16,7 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 HX711 scale;
 
-float calibration_factor = 2280.0;
+float calibration_factor = 2280.0; // Need i-change for weight accuracy
 
 Servo servo1;
 Servo servo2;
