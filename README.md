@@ -1,111 +1,40 @@
-# Vending-Machine-using-arduino-nano
+# Polvoron Vendo Machine Documentation
 
+## Project Overview
+This Arduino-based Vending Machine controls the dispensing of three different Polvoron flavors (Choco, Barnuts, and Milk) using continuous rotation servos and an HX711 load cell (scale) to verify successful item drops. It operates entirely on a 5-PHP coin acceptor system and utilizes an Adafruit SSD1306 OLED screen for the user interface.
 
-A simple smart vending machine firmware built using an Arduino Uno platform. It dispenses three items (Choco, Barnuts, Milk) using servo motors and verifies the dispensing action using an HX711 load cell (scale) to ensure the item has dropped. It also features an SSD1306 OLED display for user feedback and allows inputs from both physical buttons and via Serial communication.
+## Hardware Configuration
+| Component | Pin | Type | Purpose |
+| :--- | :--- | :--- | :--- |
+| **OLED Display** | I2C (A4/A5) | SSD1306 | Displays UI, balance, and warnings. |
+| **HX711 Scale** | `DOUT: 3`, `CLK: 2` | Load Cell | Verifies item drops using weight (`dropThreshold = 6.0`). |
+| **Coin Acceptor**| `Pin 4` | Digital In | Detects 5-PHP coin pulses. |
+| **Button: Choco** | `Pin 8` | Digital In (Pull-up) | Selects Choco flavor. |
+| **Button: Barnuts**| `Pin 9` | Digital In (Pull-up) | Selects Barnuts flavor. |
+| **Button: Milk** | `Pin 10` | Digital In (Pull-up) | Selects Milk flavor. |
+| **Servo: Choco** | `Pin 5` | PWM Out | Rotates Choco dispensing coil. |
+| **Servo: Barnuts**| `Pin 6` | PWM Out | Rotates Barnuts dispensing coil. |
+| **Servo: Milk** | `Pin 7` | PWM Out | Rotates Milk dispensing coil. |
 
-## Hardware Components
-- **Microcontroller:** Arduino Uno
-- **Display:** SSD1306 OLED (96x16 resolution) via I2C interface
-- **Actuators:** 3x Micro Servo Motors (for dispensing items)
-- **Sensors:** Load Cell with HX711 Amplifier (drop verification)
-- **Input:** 3x Push Buttons (Active Low with internal pull-ups)
-- **Coin Detector:** Coin acceptor connected to digital pin (pulse-based)
+## Core Mechanics
 
-## Pin Configuration
+### 1. Coin Verification Engine
+Coins are verified using a highly responsive, non-blocking polling engine via the custom [CheckCoin()](cci:1://file:///c:/Users/kodic/Desktop/Vendo_Machine/src/main.cpp:82:0-109:1) function. The loop uses a native 30ms debouncing window [(millis() - lastCoinDebounceTime > coinDebounceDelay)](cci:1://file:///c:/Users/kodic/Desktop/Vendo_Machine/src/main.cpp:147:0-198:1) to prevent ghost electrical signals from being registered as fake coins.
 
-| Component | Arduino Pin | Notes |
-| :--- | :--- | :--- |
-| **I2C Display** | SDA, SCL | Standard Arduino Uno I2C pins (A4, A5 typically) |
-| **HX711 DOUT** | 3 | Data out from load cell |
-| **HX711 CLK** | 2 | Clock for load cell |
-| **Servo 1 (Choco)** | 5 | PWM |
-| **Servo 2 (Barnuts)**| 6 | PWM |
-| **Servo 3 (Milk)** | 7 | PWM |
-| **Button 1 (Choco)**| 8 | Input pull-up |
-| **Button 2 (Barnuts)**| 9 | Input pull-up |
-| **Button 3 (Milk)**| 10 | Input pull-up |
-| **Coin Pin** | 4 | Input pull-up for coin detection |
+### 2. Item Selection & Dispensing
+Pushing any connected flavor button queues the dispenser. The machine requires exactly **5 PHP** of balance to operate.
+Once triggered, the machine dispenses **two items** consecutively:
+1. The respective continuous rotation servo begins to move (`servo.write(90)`).
+2. The [waitForDrop()](cci:1://file:///c:/Users/kodic/Desktop/Vendo_Machine/src/main.cpp:259:0-267:1) function actively reads the HX711 scale weight until the `dropThreshold` is hit or a `3000ms` physical timeout triggers.
+3. The servo is completely shut off (`servo.write(0)`) and detached to prevent idle jitter.
 
-## Libraries Used
-Dependencies are managed via PlatformIO (`platformio.ini`):
-- `adafruit/Adafruit SSD1306` & `adafruit/Adafruit GFX Library` (Display)
-- `bogde/HX711` (Load Cell driver)
-- `arduino-libraries/Servo` (Servo control)
+### 3. Non-Blocking Loop Architecture
+To prevent CPU lockups where the system might otherwise "ignore" a coin drop:
+- [CheckCoin()](cci:1://file:///c:/Users/kodic/Desktop/Vendo_Machine/src/main.cpp:82:0-109:1) is injected deep inside all software delays ([safeDelay()](cci:1://file:///c:/Users/kodic/Desktop/Vendo_Machine/src/main.cpp:250:0-257:1)) and `while()` loops (like waiting for the item to drop onto the scale). No matter what the vending machine is actively doing, incoming coins are safely caught and saved to your balance.
+- All hardware selection button reads use `HIGH`/`LOW` state detection logic, ensuring the CPU loop never accidentally hangs on a stuck physical button switch.
+- The `Insufficient Balance` screen functions entirely via internal timers rather than hard CPU `delay(2000)` pauses, keeping exactly 100% responsiveness available to the coin hardware at all times.
 
-## Software Logic & Flow
-
-### 1. Initialization (`setup`)
-- Serial communication initialized at 9600 baud
-- Button and coin pins configured as input with pull-ups
-- SSD1306 display initialized and shows startup message "Vendo Machine"
-- HX711 scale initialized with calibration factor and tared
-- All servo motors tested with a sweep sequence (0° → 90° → 0°) to verify operation
-- Display shows item selection menu
-
-### 2. Main Loop (`loop`)
-- Continuously checks for coin insertion
-- Monitors button presses and serial input for item selection
-- Updates OLED display with current balance and options
-- Processes purchases when valid selection is made
-
-### 3. Coin Management
-- Coins detected via falling edge on COIN_PIN
-- Each coin adds 5 PHP to currentBalance
-- Balance displayed on OLED and Serial
-- Supports coin insertion via hardware pin or serial command "coin"
-
-### 4. Item Selection
-- **Physical Buttons:** Debounced button presses for direct selection
-- **Serial Input:** Accepts numeric (1-3) or text inputs:
-  - "1", "b", "barn", "barnuts" → Barnuts
-  - "2", "c", "choco" → Choco
-  - "3", "m", "milk" → Milk
-  - "5", "coin" → Add coin
-
-### 5. Dispensing Process
-- **Cost:** 5 PHP per purchase (dispenses 2 items)
-- **Verification:** HX711 scale monitors weight change
-- **Process per item:**
-  1. Scale tared before each drop
-  2. Servo moves from 0° to 90° to push item
-  3. Waits for weight increase ≥ 6.0 units within 3-second timeout
-  4. Servo returns to 0° and detaches
-  5. Process repeats for second item
-- **Feedback:** Serial output shows dispensing progress and results
-
-### 6. Error Handling
-- Insufficient balance displays error message on OLED
-- Drop timeout logged to Serial
-- Invalid serial input prompts user for correct format
-
-## Configuration Constants
-- **Drop Threshold:** 6.0 units (weight increase to confirm drop)
-- **Drop Timeout:** 3000ms (maximum wait time for drop detection)
-- **Servo Timing:** 300ms delay for servo movement
-- **Coin Value:** 5 PHP per coin
-- **Items per Purchase:** 2 items
-
-## Serial Commands
-- `1`, `b`, `barn`, `barnuts` - Select Barnuts
-- `2`, `c`, `choco` - Select Choco
-- `3`, `m`, `milk` - Select Milk
-- `5`, `coin` - Simulate coin insertion
-
-## Calibration
-- **HX711 Scale:** Adjust `calibration_factor` (currently 2280.0) for accurate weight readings
-- **Servo Positions:** 0° = home position, 90° = dispense position
-- **Drop Threshold:** Tune based on actual item weights
-
-## Usage Instructions
-1. Power on the Arduino
-2. Insert coins (5 PHP each) via coin acceptor or serial "coin" command
-3. Select item using buttons or serial commands
-4. System dispenses 2 items and deducts 5 PHP from balance
-5. Monitor Serial output for detailed feedback
-
-## Troubleshooting
-- **Display not working:** Check I2C connections and address (0x3C)
-- **Scale inaccurate:** Recalibrate `calibration_factor` and ensure proper tare
-- **Servos not moving:** Verify PWM pins and power supply
-- **Coin not detected:** Check coin pin wiring and pull-up configuration
-- **Items not dropping:** Adjust servo angles, timing, or drop threshold
+## Customization Parameters
+- `calibration_factor` (HX711): Adjust the `2280.0` value in the code to calibrate the specific grams/units your load cell reads.
+- `coinDebounceDelay`: Adjust the `30`ms value if your specific electronic coin acceptor pulses slightly faster or slower.
+- `dropThreshold`: Set to `6.0` by default; requires adjustment depending on the actual physical weight registered when a single Polvoron lands on the tray.
