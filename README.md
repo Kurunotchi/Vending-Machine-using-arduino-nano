@@ -1,128 +1,111 @@
 # Vending-Machine-using-arduino-nano
-Arduino-based weight monitoring system for a vendo machine using a load cell and HX711 amplifier. The measured weight is displayed in real time on an I2C OLED (SSD1306) and sent to the Serial Monitor. Useful for detecting item weight, monitoring product dispensing, or validating load conditions in automated vending systems.
 
-OLED Load Cell Monitor for Vendo Machine
 
-This Arduino project measures weight using a load cell and HX711 amplifier and displays the result on an I2C OLED (SSD1306). The system shows real-time weight readings on the OLED screen and sends the data to the Serial Monitor.
-This setup can be used in vending machines to detect product weight, confirm item dispensing, or monitor load conditions.
+A simple smart vending machine firmware built using an Arduino Uno platform. It dispenses three items (Choco, Barnuts, Milk) using servo motors and verifies the dispensing action using an HX711 load cell (scale) to ensure the item has dropped. It also features an SSD1306 OLED display for user feedback and allows inputs from both physical buttons and via Serial communication.
 
-Features
+## Hardware Components
+- **Microcontroller:** Arduino Uno
+- **Display:** SSD1306 OLED (96x16 resolution) via I2C interface
+- **Actuators:** 3x Micro Servo Motors (for dispensing items)
+- **Sensors:** Load Cell with HX711 Amplifier (drop verification)
+- **Input:** 3x Push Buttons (Active Low with internal pull-ups)
+- **Coin Detector:** Coin acceptor connected to digital pin (pulse-based)
 
--Real-time weight measurement
+## Pin Configuration
 
--Load Cell + HX711 sensor interface
+| Component | Arduino Pin | Notes |
+| :--- | :--- | :--- |
+| **I2C Display** | SDA, SCL | Standard Arduino Uno I2C pins (A4, A5 typically) |
+| **HX711 DOUT** | 3 | Data out from load cell |
+| **HX711 CLK** | 2 | Clock for load cell |
+| **Servo 1 (Choco)** | 5 | PWM |
+| **Servo 2 (Barnuts)**| 6 | PWM |
+| **Servo 3 (Milk)** | 7 | PWM |
+| **Button 1 (Choco)**| 8 | Input pull-up |
+| **Button 2 (Barnuts)**| 9 | Input pull-up |
+| **Button 3 (Milk)**| 10 | Input pull-up |
+| **Coin Pin** | 4 | Input pull-up for coin detection |
 
--OLED display output
+## Libraries Used
+Dependencies are managed via PlatformIO (`platformio.ini`):
+- `adafruit/Adafruit SSD1306` & `adafruit/Adafruit GFX Library` (Display)
+- `bogde/HX711` (Load Cell driver)
+- `arduino-libraries/Servo` (Servo control)
 
--Serial Monitor logging
+## Software Logic & Flow
 
--Automatic tare (zero reset) on startup
+### 1. Initialization (`setup`)
+- Serial communication initialized at 9600 baud
+- Button and coin pins configured as input with pull-ups
+- SSD1306 display initialized and shows startup message "Vendo Machine"
+- HX711 scale initialized with calibration factor and tared
+- All servo motors tested with a sweep sequence (0° → 90° → 0°) to verify operation
+- Display shows item selection menu
 
--Adjustable calibration factor
+### 2. Main Loop (`loop`)
+- Continuously checks for coin insertion
+- Monitors button presses and serial input for item selection
+- Updates OLED display with current balance and options
+- Processes purchases when valid selection is made
 
-Hardware Required
+### 3. Coin Management
+- Coins detected via falling edge on COIN_PIN
+- Each coin adds 5 PHP to currentBalance
+- Balance displayed on OLED and Serial
+- Supports coin insertion via hardware pin or serial command "coin"
 
--Arduino Uno / Nano / Mega
+### 4. Item Selection
+- **Physical Buttons:** Debounced button presses for direct selection
+- **Serial Input:** Accepts numeric (1-3) or text inputs:
+  - "1", "b", "barn", "barnuts" → Barnuts
+  - "2", "c", "choco" → Choco
+  - "3", "m", "milk" → Milk
+  - "5", "coin" → Add coin
 
--Load Cell Sensor
+### 5. Dispensing Process
+- **Cost:** 5 PHP per purchase (dispenses 2 items)
+- **Verification:** HX711 scale monitors weight change
+- **Process per item:**
+  1. Scale tared before each drop
+  2. Servo moves from 0° to 90° to push item
+  3. Waits for weight increase ≥ 6.0 units within 3-second timeout
+  4. Servo returns to 0° and detaches
+  5. Process repeats for second item
+- **Feedback:** Serial output shows dispensing progress and results
 
--HX711 Load Cell Amplifier
+### 6. Error Handling
+- Insufficient balance displays error message on OLED
+- Drop timeout logged to Serial
+- Invalid serial input prompts user for correct format
 
--I2C OLED Display (SSD1306)
+## Configuration Constants
+- **Drop Threshold:** 6.0 units (weight increase to confirm drop)
+- **Drop Timeout:** 3000ms (maximum wait time for drop detection)
+- **Servo Timing:** 300ms delay for servo movement
+- **Coin Value:** 5 PHP per coin
+- **Items per Purchase:** 2 items
 
--Jumper Wires
+## Serial Commands
+- `1`, `b`, `barn`, `barnuts` - Select Barnuts
+- `2`, `c`, `choco` - Select Choco
+- `3`, `m`, `milk` - Select Milk
+- `5`, `coin` - Simulate coin insertion
 
--Breadboard (optional)
+## Calibration
+- **HX711 Scale:** Adjust `calibration_factor` (currently 2280.0) for accurate weight readings
+- **Servo Positions:** 0° = home position, 90° = dispense position
+- **Drop Threshold:** Tune based on actual item weights
 
-Wiring
+## Usage Instructions
+1. Power on the Arduino
+2. Insert coins (5 PHP each) via coin acceptor or serial "coin" command
+3. Select item using buttons or serial commands
+4. System dispenses 2 items and deducts 5 PHP from balance
+5. Monitor Serial output for detailed feedback
 
-OLED (I2C)
-
-OLED Pin → Arduino
-
-VCC	- 5V
-
-GND	- GND
-
-SDA	- A4
-
-SCL	- A5
-
-HX711 → Arduino
-
-VCC	- 5V
-
-GND -	GND
-
-DT	- D3
-
-SCK	- D2
-
-Load Cell → HX711
-
-Red - E+
-
-Black	- E-
-
-White	- A-
-
-Green	- A+
-
-Libraries Required
-
-Install these libraries using Arduino Library Manager:
-
-Adafruit SSD1306
-
-Adafruit GFX
-
-HX711
-
-Wire
-
-How It Works
-
-The load cell detects force applied to it.
-The HX711 module amplifies the signal and converts it to digital data.
-The Arduino reads the weight value.
-A calibration factor converts the raw data to grams.
-The result is displayed on the OLED screen and printed to the Serial Monitor.
-
-Calibration
-
-Adjust this value in the code:
-float calibration_factor = 2280.0;
-
-Steps:
-
-Upload the program.
-Place a known weight on the load cell.
-Adjust the calibration factor until the reading is accurate.
-
-Example Output
-
--OLED Display
-
--Weight:
-
--185.3 g
-
--Serial Monitor
-
--Weight: 185.32 g
-
-Applications
-
--Vending machine item detection
-
--Digital weighing scale
-
--Product dispensing validation
-
--Smart inventory monitoring
-
--Embedded sensor projects
-
-License
-
-This project is open-source and free to use for educational and development purposes.
+## Troubleshooting
+- **Display not working:** Check I2C connections and address (0x3C)
+- **Scale inaccurate:** Recalibrate `calibration_factor` and ensure proper tare
+- **Servos not moving:** Verify PWM pins and power supply
+- **Coin not detected:** Check coin pin wiring and pull-up configuration
+- **Items not dropping:** Adjust servo angles, timing, or drop threshold
