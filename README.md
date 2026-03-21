@@ -19,20 +19,31 @@ This Arduino-based Vending Machine controls the dispensing of three different Po
 ## Core Mechanics
 
 ### 1. Coin Verification Engine
-Coins are verified using a highly responsive, non-blocking polling engine via the custom [CheckCoin()](cci:1://file:///c:/Users/kodic/Desktop/Vendo_Machine/src/main.cpp:82:0-109:1) function. The loop uses a native 30ms debouncing window [(millis() - lastCoinDebounceTime > coinDebounceDelay)](cci:1://file:///c:/Users/kodic/Desktop/Vendo_Machine/src/main.cpp:147:0-198:1) to prevent ghost electrical signals from being registered as fake coins.
+Coins are verified using a highly responsive, non-blocking polling engine via the custom `CheckCoin()` function. The loop uses a native 30ms debouncing window `(millis() - lastCoinDebounceTime > coinDebounceDelay)` to prevent ghost electrical signals from being registered as fake coins.
 
 ### 2. Item Selection & Dispensing
 Pushing any connected flavor button queues the dispenser. The machine requires exactly **5 PHP** of balance to operate.
 Once triggered, the machine dispenses **two items** consecutively:
 1. The respective continuous rotation servo begins to move (`servo.write(90)`).
-2. The [waitForDrop()](cci:1://file:///c:/Users/kodic/Desktop/Vendo_Machine/src/main.cpp:259:0-267:1) function actively reads the HX711 scale weight until the `dropThreshold` is hit or a `3000ms` physical timeout triggers.
+2. The `waitForDrop()` function actively reads the HX711 scale weight until the `dropThreshold` is hit or a `3000ms` physical timeout triggers.
 3. The servo is completely shut off (`servo.write(0)`) and detached to prevent idle jitter.
 
 ### 3. Non-Blocking Loop Architecture
 To prevent CPU lockups where the system might otherwise "ignore" a coin drop:
-- [CheckCoin()](cci:1://file:///c:/Users/kodic/Desktop/Vendo_Machine/src/main.cpp:82:0-109:1) is injected deep inside all software delays ([safeDelay()](cci:1://file:///c:/Users/kodic/Desktop/Vendo_Machine/src/main.cpp:250:0-257:1)) and `while()` loops (like waiting for the item to drop onto the scale). No matter what the vending machine is actively doing, incoming coins are safely caught and saved to your balance.
+- `CheckCoin()` is injected deep inside all software delays (`safeDelay()`) and `while()` loops (like waiting for the item to drop onto the scale). No matter what the vending machine is actively doing, incoming coins are safely caught and saved to your balance.
 - All hardware selection button reads use `HIGH`/`LOW` state detection logic, ensuring the CPU loop never accidentally hangs on a stuck physical button switch.
 - The `Insufficient Balance` screen functions entirely via internal timers rather than hard CPU `delay(2000)` pauses, keeping exactly 100% responsiveness available to the coin hardware at all times.
+
+## Serial Monitor Commands
+For testing and debugging without physical hardware interaction, you can use the Serial Monitor (set to `9600` baud rate). Send your commands and press enter.
+
+| Command | Action |
+| :--- | :--- |
+| `coin` or `5` | Simulates inserting a 5 PHP coin (increases balance). |
+| `test` | Triggers a sequential hardware test of all three servo mechanisms. |
+| `1` or `barnuts`| Simulates selecting the **Barnuts** flavor. |
+| `2` or `choco`  | Simulates selecting the **Choco** flavor. |
+| `3` or `milk`   | Simulates selecting the **Milk** flavor. |
 
 ## Customization Parameters
 - `calibration_factor` (HX711): Adjust the `2280.0` value in the code to calibrate the specific grams/units your load cell reads.
